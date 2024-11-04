@@ -3,53 +3,12 @@
 #include<glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/type_ptr.hpp>
 #include<SDL2/SDL.h>
-#include<iostream>
-#include<fstream>
 #include "camera.hpp"
+#include "opengl.hpp"
+#include "file_reader.hpp"
 
 #define HEIGHT 480.0f
 #define WIDTH 640.0f
-
-
-
-
-bool compile_shader(unsigned int *shader, int shader_type, const char* source){
-
-    *shader = glCreateShader(shader_type);
-
-    if(*shader == 0){
-        printf("ERROR: wrong shader type inputted\n");
-        return false;
-    }
-    glShaderSource(*shader, 1, &source, NULL);
-    glCompileShader(*shader);
-
-    int success;
-    char info_log[512];
-    glGetShaderiv(*shader, GL_COMPILE_STATUS, &success);
-
-    if(!success){
-        glGetShaderInfoLog(*shader, 512, NULL, info_log);
-        printf("ERROR in compiling shader %s\n", info_log);
-        return false;
-    }
-    return true;
-}
-
-std::string read_file_to_string(const char *filename){
-    std::ifstream file_reader(filename, std::ios::binary);
-    if(!file_reader.is_open()){
-        printf("ERROR: could not open file %s\n", filename);
-        return "";
-    }
-
-    std::string content((std::istreambuf_iterator<char>(file_reader)),
-                        std::istreambuf_iterator<char>());
-    file_reader.close();
-
-    return content;
-}
-
 
 int main(){
 
@@ -70,7 +29,7 @@ int main(){
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-    window = SDL_CreateWindow("Hello, World!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("UMA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 
     if(window == NULL){
         printf("SDL could not create window! SDL_Error: %s\n", SDL_GetError());    
@@ -78,25 +37,8 @@ int main(){
         return 1;
     }
 
-    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
-    if(!gl_context){
-        printf("SDL Could not create opengl context: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-    
-    SDL_GL_MakeCurrent(window, gl_context);
-
-    GLenum err = glewInit();
-    if(err != GLEW_OK){
-        printf("GLEW initialization failed %s\n", glewGetErrorString(err));
-        SDL_GL_DeleteContext(gl_context);
+    SDL_GLContext gl_context = NULL;
+    if(!configure_opengl(window, gl_context)){
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -106,8 +48,8 @@ int main(){
         printf("Warning: Could not set VSync: %s", SDL_GetError());
     }
 
-    std::string vertex_shader_source = read_file_to_string("vertex.shader");
-    std::string fragment_shader_source = read_file_to_string("fragment.shader");
+    std::string vertex_shader_source = read_file_to_string("vertex.glsl");
+    std::string fragment_shader_source = read_file_to_string("fragment.glsl");
     unsigned int vertex_shader = 0;
 
     if(!compile_shader(&vertex_shader, GL_VERTEX_SHADER, vertex_shader_source.c_str())){
@@ -125,9 +67,18 @@ int main(){
     }
 
     float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f, 0.5f, 0.0f
+        -0.5f, -0.5f, 0.0f, //up-left
+        0.5f, -0.5f, 0.0f, //down-left
+        0.0f, 0.5f, 0.0f, //down-right
+        0.0f, 0.5f, -0.5f, //down-right-deep
+        0.5f, -0.5f, -0.5f //down-left-deep
+    };
+
+    unsigned int indices[] = {
+        0, 1, 2, //front
+        0, 1, 4, //left
+        0, 3, 4, //back
+        0, 2, 3
     };
 
     unsigned int program;
@@ -167,7 +118,14 @@ int main(){
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    unsigned int EBO;
+    glGenBuffers(1, &EBO);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    
     
     SDL_Event e;
     bool quit = false;
@@ -204,7 +162,7 @@ int main(){
         
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0); //ERROR IN DRAWING
         SDL_GL_SwapWindow(window);
     }
 

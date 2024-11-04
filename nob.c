@@ -4,7 +4,8 @@
 
 #define CFLAGS "-Wall", "-Wextra", "-g"
 #define LINKS "-lSDL2", "-lGL", "-lGLEW", "-I/usr/include/glm"
-#define FILES "uma.cpp", "camera.cpp"
+#define FILES "uma.cpp", "camera.cpp", "opengl.cpp", "file_reader.cpp"
+
 bool compile_project(Nob_Cmd *cmd){
 
     nob_log(INFO, "Compiling whole project\n");
